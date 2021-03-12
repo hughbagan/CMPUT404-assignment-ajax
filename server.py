@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-# Copyright 2013 Abram Hindle
+# Copyright 2021 Abram Hindle, Hugh Bagan
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -89,9 +89,9 @@ def hello():
 def update(entity):
     '''update the entities via this interface'''
     print(request.data)
-    # get_json() returns dict; None on failure.
+    # get_json() returns dict on success and None on failure.
     # free_tests.py passes in bytes, so I'm going to ignore mimetype
-    data = request.get_json(force=True) # returns Dict
+    data = request.get_json(force=True)
     print(data)
     # entity is the <str> path ending; the name of the entity
     create_mode = myWorld.get(entity) == dict()
@@ -107,7 +107,7 @@ def update(entity):
             myWorld.set(entity, data)
         except Exception as e:
             return Response(str(e), status=500)
-        return myWorld.get(entity) # "returns the obj that was PUT"
+        return json.dumps(myWorld.get(entity)) # "returns the obj that was PUT"
     else:
         print(request.method)
         return Response(status=405) # Method Not Allowed
@@ -115,6 +115,7 @@ def update(entity):
         return Response(status=201) # Created
     else:
         return Response(status=204) # No Content
+
 
 @app.route("/entity/<entity>", methods=['GET']) # (method was not specified)
 def get_entity(entity):
@@ -136,9 +137,10 @@ def world():
 @app.route("/clear", methods=['POST','GET'])
 def clear():
     '''Clear the world out!'''
-    world_state = myWorld.world()
     myWorld.clear()
-    return json.dumps(world_state)
+    world_state = myWorld.world()
+    return json.dumps(world_state) # /clear returns the state of the world {}
+                                   # TODO: before or after we clear it???
 
 
 if __name__ == "__main__":
