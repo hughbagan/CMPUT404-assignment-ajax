@@ -22,13 +22,13 @@
 
 
 import flask
-from flask import Flask, request
+from flask import Flask, request, redirect, Response
 import json
 app = Flask(__name__)
 app.debug = True
 
 # An example world
-# {
+# { <-- self.space
 #    'a':{'x':1, 'y':2},
 #    'b':{'x':2, 'y':3}
 # }
@@ -36,19 +36,25 @@ app.debug = True
 class World:
     def __init__(self):
         self.clear()
+
+    def clear(self):
+        self.space = dict()
         
     def update(self, entity, key, value):
+        # updates a value of an existing entity, 
+        # or creates a new one if it doesn't exist
+        # NOTE: it won't stop the use of erroneous keys other than 'x' or 'y'
         entry = self.space.get(entity,dict())
         entry[key] = value
         self.space[entity] = entry
 
     def set(self, entity, data):
+        # assign an entity to a dictionary of entries
+        # an entity has a name
         self.space[entity] = data
 
-    def clear(self):
-        self.space = dict()
-
     def get(self, entity):
+        # returns an entity, or empty dict if entity is not found
         return self.space.get(entity,dict())
     
     def world(self):
@@ -64,6 +70,7 @@ myWorld = World()
 def flask_post_json():
     '''Ah the joys of frameworks! They do so much work for you
        that they get in the way of sane operation!'''
+       # ^ wtf does that mean?
     if (request.json != None):
         return request.json
     elif (request.data != None and request.data.decode("utf8") != u''):
@@ -71,30 +78,64 @@ def flask_post_json():
     else:
         return json.loads(request.form.keys()[0])
 
+
 @app.route("/")
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
-    return None
+    return redirect("/static/index.html")
+
 
 @app.route("/entity/<entity>", methods=['POST','PUT'])
 def update(entity):
     '''update the entities via this interface'''
-    return None
+    data = request.get_json() # returns Dict
+    print(data)
+    # entity is the <str> path ending; the name of the entity
+    create_mode = myWorld.get(entity) == dict()
+    print("create_mode", create_mode)
+    if request.method=='POST':
+        for key in data:
+            try:
+                myWorld.update(entity, key, data[key])
+            except Exception as e:
+                return Response(str(e), status=500)
+    elif request.method=='PUT':
+        try:
+            myWorld.set(entity, data)
+        except Exception as e:
+            return Response(str(e), status=500)
+    else:
+        print(request.method)
+        return Response(status=405) # Method Not Allowed
+    if create_mode:
+        return Response(status=201) # Created
+    else:
+        return Response(status=204) # No Content
+
+@app.route("/entity/<entity>", methods=['GET']) # (method was not specified)
+def get_entity(entity):
+    '''This is the GET version of the entity interface, return a representation of the entity'''
+    # need to convert from JSON to dict?
+    return json.dumps(myWorld.get(entity))
+
 
 @app.route("/world", methods=['POST','GET'])    
 def world():
     '''you should probably return the world here'''
-    return None
+    if request.method=='GET' or request.method=='POST': # if GET, return world as JSON
+        return json.dumps(myWorld.world())
+    else: # what about POST ?
+        print(request.method)
+        return Response(status=405) # Method Not Allowed
 
-@app.route("/entity/<entity>")    
-def get_entity(entity):
-    '''This is the GET version of the entity interface, return a representation of the entity'''
-    return None
 
 @app.route("/clear", methods=['POST','GET'])
 def clear():
     '''Clear the world out!'''
-    return None
+    # Why would someone need to POST to this? Wouldn't DELETE be better?
+    myWorld.clear()
+    return Response(status=204) # No Content
+
 
 if __name__ == "__main__":
     app.run()
