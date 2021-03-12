@@ -31,6 +31,8 @@ var context = canvas.getContext("2d");
 var W = canvas.width  = window.innerWidth-6;
 var H = canvas.height = window.innerHeight-50;
 
+var DEV_HOST = 'http://127.0.0.1:5000';
+
 
 function sendJSONXMLHTTPRequest(url, objects, callback) {
     var xhr = new XMLHttpRequest();
@@ -58,6 +60,7 @@ world = {};
 //XXX: TODO Make this prettier!
 function drawCircle(context,entity) {
     with(context) {
+        console.log(entity);
         beginPath();              
         lineWidth = 3;
         var x = entity["x"];
@@ -139,6 +142,29 @@ function addEntity(entity, data) {
     drawNextFrame(); // (but should we?)
     //XXX: Send a XHTML Request that updates the entity you just  modified!
 
+    // POST data to <entity>
+    var url = DEV_HOST+'/entity/'+entity
+    var toPost = {
+        x:data.x,
+        y:data.y
+    };
+    //console.log('POST data to '+entity);
+    //console.log(data);
+    //console.log(toPost);
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type':'application/json',
+        },
+        body: JSON.stringify(toPost)
+    }).then(function (response) {
+        //console.log(response);
+        return response.json();
+    }).then((data) => {
+        console.log('Success:', data);
+    }).catch((error) => {
+        console.error('Error:', error);
+    });
 }
 
 var counter = 0;
@@ -247,21 +273,61 @@ mouse = (function() {
 // Add the application specific mouse listeners!
 //XXX: TODO Make these prettier!
 mouse.mousedowners.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'blue'});
+    addEntityWithoutName({'x':x,'y':y,'colour':'blue', 'radius':3});
 });
 
 mouse.mouseuppers.push(function(x,y,clicked,e) {
-    addEntityWithoutName({'x':x,'y':y,'colour':'red'});
+    addEntityWithoutName({'x':x,'y':y,'colour':'red', 'radius':3});
 });
 
 mouse.mousedraggers.push(function(x,y,clicked,e) {
     addEntityWithoutName({'x':x,'y':y,'colour':'green',
-                          'radius':10});
+                          'radius':1});
 });
 
 
 function update() {
     //XXX: TODO Get the world from the webservice using a XMLHTTPRequest
+    
+    // We're going to use the Fetch API instead.
+    // TODO: generalize the host
+    var url = DEV_HOST+'/world'
+    //console.log(url);
+    fetch(url, {
+        method: 'GET',
+        headers: {
+            'Accept':'application/json',
+        }
+    })
+    .then(function (response) {
+        return response.json();
+    }).then(function (data) {
+        // is the received data empty?
+        // Jakob https://stackoverflow.com/a/4994265
+        if (Object.keys(data).length !== 0) {
+            console.log('Success:', data);
+            // We have new objects to draw
+            Object.keys(data).forEach(function(entity) {
+                // NOTE: does not account for edited entities
+                console.log(entity, data[entity]);
+                if (!world.hasOwnProperty(entity)) {
+                    // Looks like we don't have this one yet
+                    appendedEntity = {
+                        x: data[entity].x,
+                        y: data[entity].y,
+                        colour: "black",
+                        radius: 1
+                    };
+                    console.log(appendedEntity);
+                    world[entity] = appendedEntity;
+                    drawNextFrame();
+                }
+            });
+        }
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+    });
     drawFrame();
 }
 

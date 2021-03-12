@@ -24,6 +24,7 @@
 import flask
 from flask import Flask, request, redirect, Response
 import json
+from copy import deepcopy
 app = Flask(__name__)
 app.debug = True
 
@@ -63,7 +64,8 @@ class World:
 # you can test your webservice from the commandline
 # curl -v   -H "Content-Type: application/json" -X PUT http://127.0.0.1:5000/entity/X -d '{"x":1,"y":1}' 
 
-myWorld = World()          
+myWorld = World()
+worldCopy = World() # always older than myWorld
 
 # I give this to you, this is how you get the raw body/data portion of a post in flask
 # this should come with flask but whatever, it's not my project.
@@ -79,6 +81,19 @@ def flask_post_json():
         return json.loads(request.form.keys()[0])
 
 
+def get_world_diff(world, world_copy):
+    # world_copy always lags behind
+    changed = {}
+    for entity in world:
+        if entity in world_copy:
+            if world[entity] != world_copy[entity]:
+                # This entity has since been updated
+                changed[entity] = world[entity]
+        else:
+            changed[entity] = world[entity]
+    return changed
+
+
 @app.route("/")
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
@@ -88,14 +103,11 @@ def hello():
 @app.route("/entity/<entity>", methods=['POST','PUT'])
 def update(entity):
     '''update the entities via this interface'''
-    print(request.data)
     # get_json() returns dict on success and None on failure.
     # free_tests.py passes in bytes, so I'm going to ignore mimetype
     data = request.get_json(force=True)
-    print(data)
     # entity is the <str> path ending; the name of the entity
     create_mode = myWorld.get(entity) == dict()
-    print("create_mode", create_mode)
     if request.method=='POST':
         for key in data:
             try:
@@ -124,15 +136,18 @@ def get_entity(entity):
     return json.dumps(myWorld.get(entity))
 
 
-@app.route("/world", methods=['POST','GET'])    
+@app.route("/world", methods=['POST','GET']) # why would we need POST ?
 def world():
     '''you should probably return the world here'''
-    if request.method=='GET' or request.method=='POST': # if GET, return world as JSON
-        return json.dumps(myWorld.world())
-    else: # what about POST ?
-        print(request.method)
-        return Response(status=405) # Method Not Allowed
-
+    global worldCopy # *sigh*
+    if request.method=='GET':
+        # Only return what has changed since last GET
+        changed = get_world_diff(myWorld.world(), worldCopy.world())
+        worldCopy = deepcopy(myWorld) # update worldCopy
+        return json.dumps(changed)
+    else:
+        return Response(status=405)
+        
 
 @app.route("/clear", methods=['POST','GET'])
 def clear():
