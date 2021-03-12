@@ -290,9 +290,8 @@ function update() {
     //XXX: TODO Get the world from the webservice using a XMLHTTPRequest
     
     // We're going to use the Fetch API instead.
-    // TODO: generalize the host
+    // I'm aware this is hot garbage
     var url = DEV_HOST+'/world'
-    //console.log(url);
     fetch(url, {
         method: 'GET',
         headers: {
@@ -320,9 +319,9 @@ function update() {
                     };
                     console.log(appendedEntity);
                     world[entity] = appendedEntity;
-                    drawNextFrame();
                 }
             });
+            drawNextFrame();
         }
     })
     .catch((error) => {
