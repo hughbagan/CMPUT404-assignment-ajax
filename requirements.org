@@ -39,20 +39,20 @@
 ** Requirements
 
    - [ ] Implement the AJAX Javascript parts in the HTML file static/index.htm
-   - [ ] Implement the webservice root
-   - [ ] Implement the webservice /entity/entity-name POST/PUT/GET API
-   - [ ] Implement the webservice /world API
-   - [ ] Implement the webservice /clear API
-   - [ ] Use JSON or XML to communicate (no plain text!)
+   - [X] Implement the webservice root
+   - [X] Implement the webservice /entity/entity-name POST/PUT/GET API
+   - [X] Implement the webservice /world API
+   - [X] Implement the webservice /clear API
+   - [X] Use JSON or XML to communicate (no plain text!)
    - [ ] The webservice can pass all the tests in freetests.py
    - [ ] The webservice can pass all the tests in not-free-tests.py (you only have part of this one, I reserve the right to add tests)
-   - [ ] The webservice can serve /static/index.html
+   - [X] The webservice can serve /static/index.html
    - [ ] static/index.html displays the current state of the webservice
    - [ ] static/index.html responds to clicks within 100ms on average
    - [ ] Make static/index.html images look nice
    - [ ] implement anything marked XXX TODO: in static/index.html
-   - [ ] /clear returns the current state of the world {}
-   - [ ] PUT returns the object that was PUT. 
+   - [X] /clear returns the current state of the world {}
+   - [X] PUT returns the object that was PUT. 
    - [ ] http://hostname:5000/static/index.html will work to produce the UI
          (so http://127.0.0.1:5000/static/index.html should work and http://localhost:5000/static/index.html should work)
 

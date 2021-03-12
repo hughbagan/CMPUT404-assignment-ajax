@@ -88,7 +88,10 @@ def hello():
 @app.route("/entity/<entity>", methods=['POST','PUT'])
 def update(entity):
     '''update the entities via this interface'''
-    data = request.get_json() # returns Dict
+    print(request.data)
+    # get_json() returns dict; None on failure.
+    # free_tests.py passes in bytes, so I'm going to ignore mimetype
+    data = request.get_json(force=True) # returns Dict
     print(data)
     # entity is the <str> path ending; the name of the entity
     create_mode = myWorld.get(entity) == dict()
@@ -104,6 +107,7 @@ def update(entity):
             myWorld.set(entity, data)
         except Exception as e:
             return Response(str(e), status=500)
+        return myWorld.get(entity) # "returns the obj that was PUT"
     else:
         print(request.method)
         return Response(status=405) # Method Not Allowed
@@ -132,9 +136,9 @@ def world():
 @app.route("/clear", methods=['POST','GET'])
 def clear():
     '''Clear the world out!'''
-    # Why would someone need to POST to this? Wouldn't DELETE be better?
+    world_state = myWorld.world()
     myWorld.clear()
-    return Response(status=204) # No Content
+    return json.dumps(world_state)
 
 
 if __name__ == "__main__":
