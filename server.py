@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-# Copyright 2013 Abram Hindle
+# Copyright 2021 Abram Hindle, Hugh Bagan
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,13 +22,14 @@
 
 
 import flask
-from flask import Flask, request
+from flask import Flask, request, redirect, Response
 import json
+from copy import deepcopy
 app = Flask(__name__)
 app.debug = True
 
 # An example world
-# {
+# { <-- self.space
 #    'a':{'x':1, 'y':2},
 #    'b':{'x':2, 'y':3}
 # }
@@ -36,19 +37,25 @@ app.debug = True
 class World:
     def __init__(self):
         self.clear()
+
+    def clear(self):
+        self.space = dict()
         
     def update(self, entity, key, value):
+        # updates a value of an existing entity, 
+        # or creates a new one if it doesn't exist
+        # NOTE: it won't stop the use of erroneous keys other than 'x' or 'y'
         entry = self.space.get(entity,dict())
         entry[key] = value
         self.space[entity] = entry
 
     def set(self, entity, data):
+        # assign an entity to a dictionary of entries
+        # an entity has a name
         self.space[entity] = data
 
-    def clear(self):
-        self.space = dict()
-
     def get(self, entity):
+        # returns an entity, or empty dict if entity is not found
         return self.space.get(entity,dict())
     
     def world(self):
@@ -57,13 +64,15 @@ class World:
 # you can test your webservice from the commandline
 # curl -v   -H "Content-Type: application/json" -X PUT http://127.0.0.1:5000/entity/X -d '{"x":1,"y":1}' 
 
-myWorld = World()          
+myWorld = World()
+worldCopy = World() # always older than myWorld
 
 # I give this to you, this is how you get the raw body/data portion of a post in flask
 # this should come with flask but whatever, it's not my project.
 def flask_post_json():
     '''Ah the joys of frameworks! They do so much work for you
        that they get in the way of sane operation!'''
+       # ^ wtf does that mean?
     if (request.json != None):
         return request.json
     elif (request.data != None and request.data.decode("utf8") != u''):
@@ -71,30 +80,83 @@ def flask_post_json():
     else:
         return json.loads(request.form.keys()[0])
 
+
+def get_world_diff(world, world_copy):
+    # world_copy always lags behind
+    changed = {}
+    for entity in world:
+        if entity in world_copy:
+            if world[entity] != world_copy[entity]:
+                # This entity has since been updated
+                changed[entity] = world[entity]
+        else:
+            changed[entity] = world[entity]
+    return changed
+
+
 @app.route("/")
 def hello():
     '''Return something coherent here.. perhaps redirect to /static/index.html '''
-    return None
+    return redirect("/static/index.html")
+
 
 @app.route("/entity/<entity>", methods=['POST','PUT'])
 def update(entity):
     '''update the entities via this interface'''
-    return None
+    # get_json() returns dict on success and None on failure.
+    # free_tests.py passes in bytes, so I'm going to ignore mimetype
+    data = request.get_json(force=True)
+    # entity is the <str> path ending; the name of the entity
+    create_mode = myWorld.get(entity) == dict()
+    if request.method=='POST':
+        for key in data:
+            try:
+                myWorld.update(entity, key, data[key])
+            except Exception as e:
+                return Response(str(e), status=500)
+    elif request.method=='PUT':
+        try:
+            myWorld.set(entity, data)
+        except Exception as e:
+            return Response(str(e), status=500)
+        return json.dumps(myWorld.get(entity)) # "returns the obj that was PUT"
+    else:
+        print(request.method)
+        return Response(status=405) # Method Not Allowed
+    if create_mode:
+        return Response(status=201) # Created
+    else:
+        return Response(status=204) # No Content
 
-@app.route("/world", methods=['POST','GET'])    
-def world():
-    '''you should probably return the world here'''
-    return None
 
-@app.route("/entity/<entity>")    
+@app.route("/entity/<entity>", methods=['GET']) # (method was not specified)
 def get_entity(entity):
     '''This is the GET version of the entity interface, return a representation of the entity'''
-    return None
+    # need to convert from JSON to dict?
+    return json.dumps(myWorld.get(entity))
+
+
+@app.route("/world", methods=['POST','GET']) # why would we need POST ?
+def world():
+    '''you should probably return the world here'''
+    global worldCopy # *sigh*
+    if request.method=='GET':
+        # Only return what has changed since last GET
+        changed = get_world_diff(myWorld.world(), worldCopy.world())
+        worldCopy = deepcopy(myWorld) # update worldCopy
+        return json.dumps(changed)
+    else:
+        return Response(status=405)
+        
 
 @app.route("/clear", methods=['POST','GET'])
 def clear():
     '''Clear the world out!'''
-    return None
+    myWorld.clear()
+    world_state = myWorld.world()
+    return json.dumps(world_state) # /clear returns the state of the world {}
+                                   # TODO: before or after we clear it???
+
 
 if __name__ == "__main__":
     app.run()
